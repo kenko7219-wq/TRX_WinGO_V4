@@ -1,0 +1,71 @@
+<!doctype html><html lang="my"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#090414"><title>TRX WINGO 1MIN</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080411;font-family:system-ui,"Noto Sans Myanmar",sans-serif;color:#fff}
+#site{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff}
+.popup{position:fixed;z-index:10;top:14px;left:50%;transform:translateX(-50%);width:min(350px,calc(100vw - 24px));padding:14px;border:1px solid #b84dff;border-radius:16px;background:linear-gradient(145deg,#211039f2,#0b0618f5);box-shadow:0 8px 28px #0009,0 0 22px #a52cff66;backdrop-filter:blur(12px)}
+.head{display:flex;justify-content:space-between;align-items:center;color:#ffd36b;font-size:12px;font-weight:800}.head button{border:0;background:transparent;color:white;font-size:21px}
+.period{font-family:monospace;text-align:center;color:#d5b5f4;font-size:12px;margin:10px 0 5px}.timerrow{display:flex;justify-content:space-between;color:#b7a8ca;font-size:11px}.timer{color:#e8a4ff;font-weight:800;font-size:15px}
+.pick{font-size:40px;font-weight:1000;text-align:center;margin:7px 0;color:#ffd36b;text-shadow:0 0 18px #ffc34d88}
+.sub{text-align:center;color:#bba9d0;font-size:10px}.status{text-align:center;color:#a99ab9;font-size:10px;margin-top:8px}
+.history{margin-top:10px;border-top:1px solid #ffffff20;padding-top:8px}.history h4{font-size:10px;color:#d9c2ef;margin:0 0 7px}.chips{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}.chip{font-size:10px;border-radius:20px;padding:5px 8px;background:#16472f;color:#8fffc1}.chip.s{background:#66172c;color:#ffb1c0}
+.bubble{position:fixed;z-index:11;top:18px;left:14px;width:62px;height:62px;padding:0;border-radius:50%;border:1px solid #ff5b69;background:radial-gradient(circle at 30% 25%,#ffb4c2,#a90035 60%,#310018);color:#fff;font-size:31px;display:none;box-shadow:0 0 22px #ff315f88;touch-action:none;user-select:none;cursor:grab}
+</style></head><body>
+<iframe id="site" src="https://www.shwelottery.life/" title="Shwelottery"></iframe>
+<section class="popup" id="popup"><div class="head" id="dragHandle" style="cursor:grab;touch-action:none;user-select:none"><span>⠿ &nbsp; TRX WINGO 1 MIN</span><button id="minBtn">−</button></div>
+<div class="period" id="period">NEXT PERIOD: --</div><div class="timerrow"><span>1 MIN COUNTDOWN</span><span class="timer" id="timer">00:60</span></div>
+<div class="pick" id="pick">--</div><div class="sub">TRX WINGO 1 MIN</div>
+<div class="status" id="status">Result history ချိတ်ဆက်နေသည်...</div><div class="history"><h4>RECENT BIG / SMALL</h4><div class="chips" id="chips"></div></div></section>
+<button class="bubble" id="bubble" aria-label="Open popup">🫟</button>
+<script>
+const popup=document.getElementById('popup'),bubble=document.getElementById('bubble');
+document.getElementById('minBtn').onclick=()=>{popup.style.display='none';bubble.style.display='block'};
+bubble.onclick=()=>{bubble.style.display='none';popup.style.display='block'};
+function clock(){const n=new Date(),mm=new Date(n.getTime()+n.getTimezoneOffset()*60000+390*60000),pad=x=>String(x).padStart(2,'0');document.getElementById('timer').textContent='00:'+pad(60-mm.getSeconds());}
+clock();setInterval(clock,1000);
+
+const PATTERNS = [
+"SBSBBS","BBSSBBSBS","SBSBSBSBS","BBBBBBBSB","SBSBSBSBSSS",
+"BSSBSSSB","BSBSBBSS","BSSBSSBBS","BSBBSB","BBSSBSS",
+"SSBSBBSB","SBBSSB","BBSBBS","SBSSB","BSSBBS",
+"SSBBSBB","BBSBSB","SBBSBSB","SBBSB","SBBSBSBB",
+"SBSBSSSB","BBSBS","SSSBSB","BSBSSS","BSSSBBSSSBS",
+"SBBSSSB","SSSSBSBB","BBSSSB","SSBBBSBS","BSBBSSS",
+"BSSSSBBBBB","SSSSBBBB","BBBBSBBBSS","BBBSBBSS","BBSBSSS",
+"SBBSBBSSS","BSBBBSSS","BSSBBSB","SSBSBSSB","BSSSBSBS"
+];
+function analyzePatterns(results){
+  // API returns newest-first; reverse to scan chronologically.
+  const chronological = [...results].reverse().map(x=>x.side==='BIG'?'B':x.side==='SMALL'?'S':'?');
+  let big=0, small=0, matches=0;
+  for(const pattern of PATTERNS){
+    for(let i=0;i+pattern.length<chronological.length;i++){
+      const segment=chronological.slice(i,i+pattern.length).join('');
+      if(segment===pattern){
+        const next=chronological[i+pattern.length];
+        if(next==='B'){big++;matches++;}
+        else if(next==='S'){small++;matches++;}
+      }
+    }
+  }
+  return {big,small,matches};
+}
+async function load(){try{const r=await fetch('/api/trx/results',{cache:'no-store'});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'API error');const list=d.results||[];if(!list.length)throw Error('Result မရှိသေးပါ');const b=list.filter(x=>x.side==='BIG').length,s=list.filter(x=>x.side==='SMALL').length;const pa=analyzePatterns(list);const choice=pa.matches>0?(pa.big>=pa.small?'BIG':'SMALL'):(b>=s?'BIG':'SMALL');document.getElementById('pick').textContent=choice;document.getElementById('period').textContent='LATEST: '+list[0].issue;document.getElementById('status').textContent='Pattern matches: '+pa.matches+' · BIG '+pa.big+' / SMALL '+pa.small+' · Updated '+new Date(d.updatedAt).toLocaleTimeString();document.getElementById('chips').innerHTML=list.slice(0,12).map(x=>'<span class="chip '+(x.side==='SMALL'?'s':'')+'">'+x.side[0]+'</span>').join('');}
+catch(e){document.getElementById('status').textContent=e.message;}}
+load();setInterval(load,15000);
+
+// Drag the floating emoji button around the screen.
+(function(){
+ const el=bubble; let sx=0,sy=0,ox=0,oy=0,drag=false,moved=false;
+ el.addEventListener('pointerdown',e=>{drag=true;moved=false;const r=el.getBoundingClientRect();sx=e.clientX;sy=e.clientY;ox=r.left;oy=r.top;el.setPointerCapture(e.pointerId);});
+ el.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)+Math.abs(dy)>5)moved=true;if(moved){el.style.left=Math.max(0,Math.min(innerWidth-el.offsetWidth,ox+dx))+'px';el.style.top=Math.max(0,Math.min(innerHeight-el.offsetHeight,oy+dy))+'px';}});
+ el.addEventListener('pointerup',()=>{drag=false;});
+ el.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopImmediatePropagation();moved=false;}},true);
+ // Drag popup using the header grip, without triggering minimize.
+ const handle=document.getElementById('dragHandle'), panel=document.getElementById('popup');
+ let psx=0,psy=0,pl=0,pt=0,pdrag=false;
+ handle.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;pdrag=true;const r=panel.getBoundingClientRect();psx=e.clientX;psy=e.clientY;pl=r.left;pt=r.top;panel.style.transform='none';panel.style.left=pl+'px';panel.style.top=pt+'px';panel.setPointerCapture(e.pointerId);});
+ handle.addEventListener('pointermove',e=>{if(!pdrag)return;panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,pl+e.clientX-psx))+'px';panel.style.top=Math.max(0,Math.min(innerHeight-panel.offsetHeight,pt+e.clientY-psy))+'px';});
+ handle.addEventListener('pointerup',()=>pdrag=false);
+ handle.addEventListener('pointercancel',()=>pdrag=false);
+})();
+</script></body></html>
